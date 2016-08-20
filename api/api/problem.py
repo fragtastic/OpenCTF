@@ -91,6 +91,7 @@ def problem_update():
 
 	problem = Problems.query.filter_by(pid=pid).first()
 	if problem:
+		problem.pid = title.lower().replace(" ", "-")
 		problem.title = title
 		problem.category = category
 		problem.description = description
