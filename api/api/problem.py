@@ -274,26 +274,6 @@ def get_solves(pid):
 	solves = Solves.query.filter_by(pid=pid, correct=1).count()
 	return solves
 
-def insert_problem(data, force=False):
-	with app.app_context():
-		if len(list(get_problem(pid=data["pid"]).all())) > 0:
-			if force == True:
-				_problem = Problems.query.filter_by(pid=data["pid"]).first()
-				db.session.delete(_problem)
-				db.session.commit()
-			else:
-				raise InternalException("Problem already exists.")
-		insert = Problems(data["pid"], data["title"], data["category"], data["description"], data["value"])
-		if "hint" in data: insert.hint = data["hint"]
-		if "autogen" in data: insert.autogen = data["autogen"]
-		if "bonus" in data: insert.bonus = data["bonus"]
-		if "threshold" in data: insert.threshold = data["threshold"]
-		if "weightmap" in data: insert.weightmap = data["weightmap"]
-		db.session.add(insert)
-		db.session.commit()
-		db.session.close()
-	return True
-
 def get_problem(title=None, pid=None):
 	match = {}
 	if title != None:
