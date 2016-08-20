@@ -30,14 +30,14 @@ blueprint = Blueprint("problem", __name__)
 @admins_only
 def problem_add():
 	params = utils.flat_multi(request.form)
-	title = params.get("title")
-	category = params.get("category")
-	description = params.get("description")
-	hint = params.get("hint")
-	value = params.get("value")
-	grader_contents = params.get("grader_contents")
-	bonus = params.get("bonus")
-	autogen = params.get("autogen")
+	title = params.get("title", "")
+	category = params.get("category", "")
+	description = params.get("description", "")
+	hint = params.get("hint", "")
+	value = params.get("value", 0)
+	grader_contents = params.get("grader_contents", "")
+	bonus = params.get("bonus", 0)
+	autogen = params.get("autogen", 0)
 	try:
 		weightmap = json.loads(params.get("weightmap", "{}"))
 	except:
@@ -74,15 +74,15 @@ def problem_delete():
 @admins_only
 def problem_update():
 	params = utils.flat_multi(request.form)
-	pid = params.get("pid")
-	title = params.get("title")
-	category = params.get("category")
-	description = params.get("description")
-	hint = params.get("hint")
-	value = params.get("value")
-	bonus = params.get("bonus")
-	grader_contents = params.get("grader_contents")
-	autogen = params.get("autogen")
+	pid = params.get("pid", "")
+	title = params.get("title", "")
+	category = params.get("category", "")
+	description = params.get("description", "")
+	hint = params.get("hint", "")
+	value = params.get("value", 0)
+	bonus = params.get("bonus", 0)
+	grader_contents = params.get("grader_contents", "")
+	autogen = params.get("autogen", 0)
 	try:
 		weightmap = json.loads(params.get("weightmap", "{}"))
 	except:
