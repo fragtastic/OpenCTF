@@ -133,6 +133,9 @@ def problem_submit():
 	problem = Problems.query.filter_by(pid=pid).first()
 	_team = Teams.query.filter_by(tid=tid).first()
 
+	if problem is None:
+		raise WebException("Problem does not exist.")
+
 	if problem not in get_problems(tid):
 		raise WebException("You have not unlocked this problem.")
 
@@ -144,48 +147,43 @@ def problem_submit():
 	if flag_tried:
 		raise WebException("Your team has already tried this solution.")
 
-	if problem:
-		old_rank, dummy = _team.place()
-		dummy, dummy2, old_leader = stats.get_leaderboard()[0]
-		if problem.category == "Programming":
-			raise WebException("Please submit programming problems using the Programming interface.")
-		grader = imp.load_source("grader", problem.grader)
-		random = None
-		if problem.autogen:
-			random = autogen.get_random(pid, tid)
-		correct, response = grader.grade(random, flag)
+	old_rank, dummy = _team.place()
+	dummy, dummy2, old_leader = stats.get_leaderboard()[0]
+	if problem.category == "Programming":
+		raise WebException("Please submit programming problems using the Programming interface.")
+	grader = imp.load_source("grader", problem.grader)
+	random = None
+	if problem.autogen:
+		random = autogen.get_random(pid, tid)
+	correct, response = grader.grade(random, flag)
 
-		solve = Solves(pid, _user.uid, tid, flag, correct)
-		db.session.add(solve)
+	solve = Solves(pid, _user.uid, tid, flag, correct)
+	db.session.add(solve)
+	db.session.commit()
+
+	if correct:
+		# Wait until after the solve has been added to the database before adding bonus
+		solves = get_solves(pid)
+		solve.bonus = [-1, solves][solves < 4]
+		cache.invalidate_memoization(get_solves, pid)
+		if _user:
+			activity = Activity(_user.uid, 3, tid=tid, pid=pid)
+			db.session.add(activity)
 		db.session.commit()
+		logger.log(__name__, "%s has solved %s by submitting %s" % (_team.teamname, problem.title, flag), level=logger.WARNING)
 
-		if correct:
-			# Wait until after the solve has been added to the database before adding bonus
-			solves = get_solves(pid)
-			solve.bonus = [-1, solves][solves < 4]
-			cache.invalidate_memoization(get_solves, pid)
-			if _user:
-				activity = Activity(_user.uid, 3, tid=tid, pid=pid)
-				db.session.add(activity)
+		new_rank, dummy = _team.place()
+		if new_rank == 1 and old_rank > 1:
+			activity = Activity(-1, 4, tid=_team.tid, pid=-1)
+			db.session.add(activity)
+			activity = Activity(-1, 5, tid=old_leader.tid, pid=-1)
+			db.session.add(activity)
 			db.session.commit()
-			logger.log(__name__, "%s has solved %s by submitting %s" % (_team.teamname, problem.title, flag), level=logger.WARNING)
-
-			new_rank, dummy = _team.place()
-			if new_rank == 1 and old_rank > 1:
-				activity = Activity(-1, 4, tid=_team.tid, pid=-1)
-				db.session.add(activity)
-				activity = Activity(-1, 5, tid=old_leader.tid, pid=-1)
-				db.session.add(activity)
-				db.session.commit()
-				db.session.close()
-			return { "success": 1, "message": response }
-		else:
-			logger.log(__name__, "%s has incorrectly submitted %s to %s" % (_team.teamname, flag, problem.title), level=logger.WARNING)
-			raise WebException(response)
-
+			db.session.close()
+		return { "success": 1, "message": response }
 	else:
-		raise WebException("Problem does not exist!")
-
+		logger.log(__name__, "%s has incorrectly submitted %s to %s" % (_team.teamname, flag, problem.title), level=logger.WARNING)
+		raise WebException(response)
 
 @blueprint.route("/data", methods=["GET"])
 @api_wrapper
