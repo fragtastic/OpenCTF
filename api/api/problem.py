@@ -30,14 +30,14 @@ blueprint = Blueprint("problem", __name__)
 @admins_only
 def problem_add():
 	params = utils.flat_multi(request.form)
-	title = params.get("title")
-	category = params.get("category")
-	description = params.get("description")
-	hint = params.get("hint")
-	value = params.get("value")
-	grader_contents = params.get("grader_contents")
-	bonus = params.get("bonus")
-	autogen = params.get("autogen")
+	title = params.get("title", "")
+	category = params.get("category", "")
+	description = params.get("description", "")
+	hint = params.get("hint", "")
+	value = params.get("value", 0)
+	grader_contents = params.get("grader_contents", "")
+	bonus = params.get("bonus", 0)
+	autogen = params.get("autogen", 0)
 	try:
 		weightmap = json.loads(params.get("weightmap", "{}"))
 	except:
@@ -74,15 +74,15 @@ def problem_delete():
 @admins_only
 def problem_update():
 	params = utils.flat_multi(request.form)
-	pid = params.get("pid")
-	title = params.get("title")
-	category = params.get("category")
-	description = params.get("description")
-	hint = params.get("hint")
-	value = params.get("value")
-	bonus = params.get("bonus")
-	grader_contents = params.get("grader_contents")
-	autogen = params.get("autogen")
+	pid = params.get("pid", "")
+	title = params.get("title", "")
+	category = params.get("category", "")
+	description = params.get("description", "")
+	hint = params.get("hint", "")
+	value = params.get("value", 0)
+	bonus = params.get("bonus", 0)
+	grader_contents = params.get("grader_contents", "")
+	autogen = params.get("autogen", 0)
 	try:
 		weightmap = json.loads(params.get("weightmap", "{}"))
 	except:
@@ -91,6 +91,7 @@ def problem_update():
 
 	problem = Problems.query.filter_by(pid=pid).first()
 	if problem:
+		problem.pid = title.lower().replace(" ", "-")
 		problem.title = title
 		problem.category = category
 		problem.description = description
@@ -132,6 +133,9 @@ def problem_submit():
 	problem = Problems.query.filter_by(pid=pid).first()
 	_team = Teams.query.filter_by(tid=tid).first()
 
+	if problem is None:
+		raise WebException("Problem does not exist.")
+
 	if problem not in get_problems(tid):
 		raise WebException("You have not unlocked this problem.")
 
@@ -143,48 +147,43 @@ def problem_submit():
 	if flag_tried:
 		raise WebException("Your team has already tried this solution.")
 
-	if problem:
-		old_rank, dummy = _team.place()
-		dummy, dummy2, old_leader = stats.get_leaderboard()[0]
-		if problem.category == "Programming":
-			raise WebException("Please submit programming problems using the Programming interface.")
-		grader = imp.load_source("grader", problem.grader)
-		random = None
-		if problem.autogen:
-			random = autogen.get_random(pid, tid)
-		correct, response = grader.grade(random, flag)
+	old_rank, dummy = _team.place()
+	dummy, dummy2, old_leader = stats.get_leaderboard()[0]
+	if problem.category == "Programming":
+		raise WebException("Please submit programming problems using the Programming interface.")
+	grader = imp.load_source("grader", problem.grader)
+	random = None
+	if problem.autogen:
+		random = autogen.get_random(pid, tid)
+	correct, response = grader.grade(random, flag)
 
-		solve = Solves(pid, _user.uid, tid, flag, correct)
-		db.session.add(solve)
+	solve = Solves(pid, _user.uid, tid, flag, correct)
+	db.session.add(solve)
+	db.session.commit()
+
+	if correct:
+		# Wait until after the solve has been added to the database before adding bonus
+		solves = get_solves(pid)
+		solve.bonus = [-1, solves][solves < 4]
+		cache.invalidate_memoization(get_solves, pid)
+		if _user:
+			activity = Activity(_user.uid, 3, tid=tid, pid=pid)
+			db.session.add(activity)
 		db.session.commit()
+		logger.log(__name__, "%s has solved %s by submitting %s" % (_team.teamname, problem.title, flag), level=logger.WARNING)
 
-		if correct:
-			# Wait until after the solve has been added to the database before adding bonus
-			solves = get_solves(pid)
-			solve.bonus = [-1, solves][solves < 4]
-			cache.invalidate_memoization(get_solves, pid)
-			if _user:
-				activity = Activity(_user.uid, 3, tid=tid, pid=pid)
-				db.session.add(activity)
+		new_rank, dummy = _team.place()
+		if new_rank == 1 and old_rank > 1:
+			activity = Activity(-1, 4, tid=_team.tid, pid=-1)
+			db.session.add(activity)
+			activity = Activity(-1, 5, tid=old_leader.tid, pid=-1)
+			db.session.add(activity)
 			db.session.commit()
-			logger.log(__name__, "%s has solved %s by submitting %s" % (_team.teamname, problem.title, flag), level=logger.WARNING)
-
-			new_rank, dummy = _team.place()
-			if new_rank == 1 and old_rank > 1:
-				activity = Activity(-1, 4, tid=_team.tid, pid=-1)
-				db.session.add(activity)
-				activity = Activity(-1, 5, tid=old_leader.tid, pid=-1)
-				db.session.add(activity)
-				db.session.commit()
-				db.session.close()
-			return { "success": 1, "message": response }
-		else:
-			logger.log(__name__, "%s has incorrectly submitted %s to %s" % (_team.teamname, flag, problem.title), level=logger.WARNING)
-			raise WebException(response)
-
+			db.session.close()
+		return { "success": 1, "message": response }
 	else:
-		raise WebException("Problem does not exist!")
-
+		logger.log(__name__, "%s has incorrectly submitted %s to %s" % (_team.teamname, flag, problem.title), level=logger.WARNING)
+		raise WebException(response)
 
 @blueprint.route("/data", methods=["GET"])
 @api_wrapper
@@ -270,26 +269,6 @@ def clear_solves():
 def get_solves(pid):
 	solves = Solves.query.filter_by(pid=pid, correct=1).count()
 	return solves
-
-def insert_problem(data, force=False):
-	with app.app_context():
-		if len(list(get_problem(pid=data["pid"]).all())) > 0:
-			if force == True:
-				_problem = Problems.query.filter_by(pid=data["pid"]).first()
-				db.session.delete(_problem)
-				db.session.commit()
-			else:
-				raise InternalException("Problem already exists.")
-		insert = Problems(data["pid"], data["title"], data["category"], data["description"], data["value"])
-		if "hint" in data: insert.hint = data["hint"]
-		if "autogen" in data: insert.autogen = data["autogen"]
-		if "bonus" in data: insert.bonus = data["bonus"]
-		if "threshold" in data: insert.threshold = data["threshold"]
-		if "weightmap" in data: insert.weightmap = data["weightmap"]
-		db.session.add(insert)
-		db.session.commit()
-		db.session.close()
-	return True
 
 def get_problem(title=None, pid=None):
 	match = {}

@@ -350,16 +350,22 @@ app.controller("profileController", function($controller, $scope, $http, $routeP
 
 
 app.controller("programmingController", function($controller, $scope, $http, result) {
+	var cache;
+	if (typeof(Storage) !== "undefined") {
+		cache = localStorage;
+	} else {
+		cache = {};
+	}
+
 	$controller("loginController", { $scope: $scope });
 	$("#editor").height($(window).height()/2);
-	var grader = ace.edit("editor");
-	grader.setTheme("ace/theme/tomorrow");
-	grader.getSession().setMode("ace/mode/python");
-	grader.setOptions({
+	var editor = ace.edit("editor");
+	editor.setTheme("ace/theme/tomorrow");
+	editor.getSession().setMode("ace/mode/python");
+	editor.setOptions({
 		fontFamily: "monospace",
 		fontSize: "10pt"
 	});
-	grader.setValue("");
 	if (result["success"] == 1) {
 		$scope.data = result;
 	} else {
@@ -371,15 +377,15 @@ app.controller("programmingController", function($controller, $scope, $http, res
 		if (result["success"] == 1) {
 			$scope.submissions = result["submissions"];
 			$scope.$apply();
-			preselect();
 			$(".timeago").timeago();
+			preselect();
 		}
 	});
+
 	$scope.submit = function() {
 		data = {};
 		var pid = $("#problem-select").val();
 		var language = $("#language-select").val();
-		var editor = ace.edit("editor");
 		var program = editor.getValue();
 		data["pid"] = pid;
 		data["language"] = language;
@@ -403,6 +409,41 @@ app.controller("programmingController", function($controller, $scope, $http, res
 			});
 		});
 	}
+
+	function update_highlighting() {
+		var language = $("#language-select").val();
+		if (language === "python3") {
+			language = "python";
+		}
+		editor.getSession().setMode("ace/mode/" + language);
+	}
+
+	// Use browser storage for cache
+	editor.setValue(cache[$("#problem-select").val() + "#" + $("#language-select").val()]);
+	editor.on("change", function() {
+		cache[$("#problem-select").val() + "#" + $("#language-select").val()] = editor.getValue();
+	});
+
+	$("#problem-select").data("prev", $("#problem-select").val());
+	$("#problem-select").change(function() {
+		var oldProblem = $(this).data("prev");
+		var newProblem = $(this).val();
+		var language = $("#language-select").val();
+		cache[oldProblem + "#" + language] = editor.getValue();
+		editor.setValue(cache[newProblem + "#" + language] || "");
+		$(this).data("prev", $(this).val());
+	});
+
+	$("#language-select").data("prev", $("#language-select").val());
+	$("#language-select").change(function() {
+		update_highlighting();
+		var oldLanguage = $(this).data("prev");
+		var newLanguage = $(this).val();
+		var problem = $("#problem-select").val();
+		cache[problem + "#" + oldLanguage] = editor.getValue();
+		editor.setValue(cache[problem + "#" + newLanguage] || "");
+		$(this).data("prev", $(this).val());
+	});
 });
 
 app.controller("setupController", function($controller, $scope, $http, result) {

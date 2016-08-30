@@ -21,6 +21,7 @@ var create_problem = function() {
 	data["autogen"] = autogen ? 1 : 0;
 
 	$(input).attr("disabled", "disabled");
+
 	api_call("POST", "/api/problem/add", data, function(result) {
 		if (result["success"] == 1) {
 			display_message("add-status", "success", result["message"], function() {

@@ -108,3 +108,30 @@ class TestProblem():
 		assert number >= 1 and number <= 500
 		response = json.loads(client.post("/api/problem/submit", data={ "pid": "test-problem-3", "flag": str(2 * number) }).data)
 		assert response["success"] == 1
+
+	def test_problem_update(self, client):
+		data = {
+			"pid": "test-problem-2",
+			"title": "Test Problem 2",
+			"category": "Miscellaneous",
+			"description": "Here is a description.",
+			"hint": "Hint.",
+			"value": 300,
+			"grader_contents": "flag = 'hello'\ndef grade(autogen, candidate):\n\tif candidate == flag:\n\t\treturn True, 'Nice!'\n\treturn False, 'Nope.'",
+			"bonus": 0,
+			"autogen": 0,
+			"weightmap": '{ "test-problem": 1 }',
+			"threshold": 1
+		}
+		client.post("/api/user/login", data={ "username": ADMIN[1], "password": ADMIN[3] })
+		response = json.loads(client.post("/api/problem/update", data=data).data)
+		assert response["success"] == 1
+
+	def test_problem_delete(self, client):
+		client.post("/api/user/login", data={ "username": ADMIN[1], "password": ADMIN[3] })
+		data = { "pid": "test-problem-3" }
+		response = json.loads(client.post("/api/problem/delete", data=data).data)
+		assert response["success"] == 1
+		response = json.loads(client.get("/api/problem/data").data)
+		assert response["success"] == 1
+		assert "problems" in response and len(response["problems"]) == 2
