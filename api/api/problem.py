@@ -328,8 +328,10 @@ def process_description(description):
 	return description
 
 def validate_grader(grader_contents, autogen=False):
-	tmp_grader = "/tmp/grader.py"
-	open(tmp_grader, "w").write(grader_contents)
+	tmp_grader = "/tmp/grader" + utils.generate_string() + ".py"
+	f = open(tmp_grader, "w")
+	f.write(grader_contents)
+	f.close()
 
 	try:
 		grader = imp.load_source("grader", tmp_grader)

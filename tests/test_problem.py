@@ -91,7 +91,7 @@ class TestProblem():
 			"description": "Here is a description.",
 			"hint": "No hint.",
 			"value": 200,
-			"grader_contents": "flag = 'hello'\ndef generate_flag(random):\n\treturn 2 * random.randint(1, 500)\ndef generate_problem(random, pid):\n\treturn {'description': 'what is twice ' + str(random.randint(1, 500)) + '?'}\ndef grade(autogen, candidate):\n\tif int(candidate) == generate_flag(autogen):\n\t\treturn True, 'Nice!'\n\treturn False, 'Nope.'",
+			"grader_contents": "flag = 'hello'\ndef generate_flag(random):\n\treturn 2 * random.randint(1, 500)\ndef generate_problem(random, pid):\n\treturn {'description': 'what is twice ' + str(random.randint(1, 500)) + '?'}\ndef grade(autogen, candidate):\n\ttry:\n\t\tif int(candidate) == generate_flag(autogen):\n\t\t\treturn True, 'Nice!'\n\t\treturn False, 'Nope.'\n\texcept:\n\t\treturn False, 'Nope.'\n",
 			"bonus": 0,
 			"autogen": 1,
 		}
