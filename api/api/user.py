@@ -358,9 +358,6 @@ def user_twofactor_verify():
 @api_wrapper
 @login_required
 def user_avatar_upload():
-	logged_in = is_logged_in()
-	if not logged_in:
-		raise WebException("You're not logged in.")
 
 	_user = get_user().first()
 	f = request.files["file"]
@@ -388,9 +385,6 @@ def user_avatar_upload():
 @api_wrapper
 @login_required
 def user_avatar_remove():
-	logged_in = is_logged_in()
-	if not logged_in:
-		raise WebException("You're not logged in.")
 	_user = get_user().first()
 
 	try:
@@ -499,6 +493,7 @@ def logout_user():
 		db.session.commit()
 		db.session.close()
 	session.clear()
+
 def create_login_token(username):
 	user = get_user(username_lower=username.lower()).first()
 	useragent = request.headers.get("User-Agent")
