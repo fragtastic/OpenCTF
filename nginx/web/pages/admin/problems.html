@@ -262,7 +262,7 @@
 			"flag = 'this_is_a_flag'",
 			"",
 			"def grade(autogen, candidate):",
-			"	if candidate.find(flag) >= 0:",
+			"	if candidate == flag:",
 			"		return True, 'Correct!'",
 			"	return False, 'Nope.'"
 		].join("\n"));
