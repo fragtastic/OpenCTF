@@ -4,6 +4,7 @@ from werkzeug import secure_filename
 
 from models import db, Files, Problems, ProgrammingSubmissions, Solves, Teams, Users, Activity
 from decorators import admins_only, api_wrapper, login_required, team_required, InternalException, WebException
+from sqlalchemy import func
 
 import datetime
 import hashlib
@@ -143,7 +144,7 @@ def problem_submit():
 	if solved:
 		raise WebException("You already solved this problem.")
 
-	flag_tried = Solves.query.filter_by(tid=tid, pid=pid, flag=flag).first()
+	flag_tried = Solves.query.filter(tid=tid, pid=pid, Solves.flag == func.binary(flag)).first()
 	if flag_tried:
 		raise WebException("Your team has already tried this solution.")
 
